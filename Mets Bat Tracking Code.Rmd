@@ -5,6 +5,11 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+## I took data from Baseball Savant from 24 and 25 and downloaded them into CSVs. The hitters in my set are all qualified
+## hitters from that individual year
+
+
+
 ```{r setup, include=FALSE}
 #Install Packages and load them
 library(shiny)
