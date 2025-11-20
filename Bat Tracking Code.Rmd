@@ -5,6 +5,10 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+## I took data from Baseball Savant from 24 and 25 and downloaded them into CSVs. 
+## The hitters in my set are all qualified
+## hitters from that individual year
+
 ```{r setup, include=FALSE}
 #Install Packages and load them
 library(shiny)
@@ -81,7 +85,7 @@ ggplot(bat_power_plot, aes(x = attack_angle_diff, y = xSLG_diff)) +
   # dots for ALL players
   geom_point(alpha = 0.4, size = 2) +
   
-  # headshots only for big changers
+  # headshots only for leaders and laggards
   ggimage::geom_image(
     data = bat_power_plot %>% 
       dplyr::filter(attack_angle_diff > 3 | attack_angle_diff < -2),
