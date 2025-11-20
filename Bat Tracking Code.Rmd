@@ -1,0 +1,132 @@
+---
+title: "Bat Path Improvements"
+author: "Greg Nieskens"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#Install Packages and load them
+library(shiny)
+library(mlbplotR)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(readxl)
+library(stringr)
+library(ggimage)
+library(ggimage)
+
+#load bat tracking and power csvs, clean column names 
+power_2024 <- read_csv("2024power.csv")
+power_2025 <- read_csv("2025power.csv")
+bat_2024   <- read_csv("2024batdata.csv")
+bat_2025   <- read_csv("2025bat.csv")
+
+power_2024 <- power_2024 %>%
+  rename(name = `last_name, first_name`) %>%
+  rename(id = player_id)
+  
+power_2025 <- power_2025 %>%
+  rename(name = `last_name, first_name`) %>%
+  rename(id = player_id)
+```
+
+```{r}
+#Combine All
+power_all <- full_join(power_2024, power_2025, by = c("id", "name"))
+bat_all <- full_join(bat_2024, bat_2025, by = c("id", "name"))
+
+```
+
+
+```{r}
+# Find YoY difference in attack angle and xSLG and join together
+bat_all <- bat_all %>%
+  mutate(attack_angle_diff = attack_angle.y - attack_angle.x)
+
+power_all <- power_all %>%
+  mutate(xSLG_diff = est_slg.y - est_slg.x)
+
+# Combine bat + power
+bat_power_all <- bat_all %>%
+  inner_join(power_all, by = c("id", "name")) %>%
+  select(name, id, attack_angle_diff, xSLG_diff)
+
+# Keep only players with swing_tilt < 30 in 2024
+bat_power_flat <- bat_all %>%
+  inner_join(power_all, by = c("id", "name")) %>%
+  filter(swing_tilt.x < 30) %>%
+  # Keep only relevant columns
+  select(name, id, attack_angle_diff, xSLG_diff)
+
+# Keep only players with attack_angle < 5 in 2024
+bat_power_poorangle <- bat_all %>%
+  inner_join(power_all, by = c("id", "name")) %>%
+  filter(attack_angle.x < 5) %>%
+  select(name, id, attack_angle_diff, xSLG_diff)
+
+bat_power_plot <- bat_power_all %>%
+  left_join(
+    mlbplotR::load_headshots(),
+    by = c("id" = "savant_id")
+  )
+
+```
+
+
+```{r}
+ggplot(bat_power_plot, aes(x = attack_angle_diff, y = xSLG_diff)) +
+  
+  # dots for ALL players
+  geom_point(alpha = 0.4, size = 2) +
+  
+  # headshots only for big changers
+  ggimage::geom_image(
+    data = bat_power_plot %>% 
+      dplyr::filter(attack_angle_diff > 3 | attack_angle_diff < -2),
+    aes(image = espn_headshot),
+    size = 0.15
+  ) +
+  
+  # regression line (all players)
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    color = "blue",
+    alpha = 0.2
+  ) +
+  
+  labs(
+    title = "Attack Angle Improvement vs Power Production",
+    x = "Attack Angle Change (2025 − 2024)",
+    y = "xSLG Change (2025 − 2024)"
+  ) +
+  theme_minimal()
+
+```
+
+
+```{r}
+
+# correlations with dataset
+cor_all <- cor(bat_power_all$attack_angle_diff, bat_power_all$xSLG_diff, use = "complete.obs")
+cor_flat <- cor(bat_power_flat$attack_angle_diff, bat_power_flat$xSLG_diff, use = "complete.obs")
+cor_angle <- cor(bat_power_poorangle$attack_angle_diff, bat_power_poorangle$xSLG_diff, use = "complete.obs")
+
+# summary table
+cor_table <- tibble(
+  Dataset = c(
+    "All Players",
+    "Flat Swingers (2024 tilt < 30)",
+    "Flat on Impact (2024 attack_angle < 5)"
+  ),
+  Correlation = c(cor_all, cor_flat, cor_angle)
+)
+# View table
+cor_table
+
+```
+
+
+
